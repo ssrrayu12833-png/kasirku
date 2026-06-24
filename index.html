@@ -238,6 +238,7 @@ hr.sep{border:none;border-top:1px dashed var(--border);margin:13px 0}
   <div class="sb-section">Laporan</div>
   <button class="sb-item" data-page="riwayat"><span class="ico">📋</span><span>Riwayat Transaksi</span></button>
   <button class="sb-item" data-page="laporan"><span class="ico">📈</span><span>Laporan Penjualan</span></button>
+  <button class="sb-item" data-page="stokharian"><span class="ico">📉</span><span>Stok Harian</span></button>
   <button class="sb-item" data-page="cashopname"><span class="ico">💵</span><span>Cash Opname</span></button>
   <div class="sb-section">Lainnya</div>
   <button class="sb-item" data-page="pengaturan"><span class="ico">⚙️</span><span>Pengaturan</span></button>
@@ -266,6 +267,7 @@ hr.sep{border:none;border-top:1px dashed var(--border);margin:13px 0}
     <button class="bn-item" data-page="produk"><span class="ico">📦</span><span>Produk</span></button>
     <button class="bn-item" data-page="riwayat"><span class="ico">📋</span><span>Riwayat</span></button>
     <button class="bn-item" data-page="laporan"><span class="ico">📈</span><span>Laporan</span></button>
+    <button class="bn-item" data-page="stokharian"><span class="ico">📉</span><span>Stok</span></button>
     <button class="bn-item" data-page="cashopname"><span class="ico">💵</span><span>Cash</span></button>
     <button class="bn-item" data-page="pengaturan"><span class="ico">⚙️</span><span>Setting</span></button>
   </div>
@@ -502,7 +504,7 @@ window.addEventListener('DOMContentLoaded',()=>{
 const pageTitles={
   dashboard:'📊 Dashboard', kasir:'🛒 Kasir',
   produk:'📦 Produk & Stok', riwayat:'📋 Riwayat Transaksi',
-  laporan:'📈 Laporan Penjualan', cashopname:'💵 Cash Opname',
+  laporan:'📈 Laporan Penjualan', stokharian:'📉 Laporan Stok Harian', cashopname:'💵 Cash Opname',
   pengaturan:'⚙️ Pengaturan'
 };
 function showPage(p){
@@ -510,7 +512,7 @@ function showPage(p){
   document.getElementById('pageTitle').textContent=pageTitles[p]||p;
   document.getElementById('topbarActions').innerHTML='';
   document.getElementById('pageContent').innerHTML='<div class="empty"><div class="spinner" style="margin:0 auto"></div></div>';
-  ({dashboard,kasir,produkPage,riwayat,laporan,cashopname,pengaturan})[p==='produk'?'produkPage':p]();
+  ({dashboard,kasir,produkPage,riwayat,laporan,stokharian,cashopname,pengaturan})[p==='produk'?'produkPage':p]();
 }
 
 // ════════════════════════════════════════════
@@ -611,7 +613,11 @@ function kasir(){
         <div class="card-header"><span>👤</span><h3>Customer & Invoice</h3></div>
         <div class="card-body">
           <div class="grid-2">
-            <div class="field"><label>Nama Customer</label><input id="kCust" placeholder="Ibu Ani" oninput="refreshBill()"></div>
+            <div class="field full" style="position:relative">
+              <label>Nama Customer</label>
+              <input id="kCust" placeholder="Ketik nama atau cari pelanggan lama..." oninput="onCustInput(this);refreshBill()" autocomplete="off">
+              <div class="ac-list" id="acCust" style="display:none"></div>
+            </div>
             <div class="field"><label>No. WhatsApp (+62)</label><div class="wa-row"><span class="wa-prefix">+62</span><input id="kWA" placeholder="8xxxxxxxxxx" style="flex:1"></div></div>
             <div class="field"><label>No. Invoice</label><input id="kInv" value="INV-${String(Date.now()).slice(-4)}" oninput="refreshBill()"></div>
             <div class="field"><label>Tanggal</label><input type="date" id="kTgl" value="${tglNow()}" oninput="refreshBill()"></div>
@@ -757,12 +763,25 @@ function buildBill(toko,totals){
 
 async function simpanTx(){
   if(!kasirItems.length){showToast('⚠️ Tambah item dulu!',false);return;}
+  const invNo=gv('kInv');
+  if(invNo){
+    const allTx=await fbGet('transaksi');
+    if(allTx){
+      const dup=Object.values(allTx).find(t=>t.invoice&&t.invoice===invNo);
+      if(dup){showToast('⚠️ Invoice '+invNo+' sudah pernah disimpan!',false);return;}
+    }
+  }
   loading(true);
   try{
     const toko=await fbGet('toko')||{};
     const{sub,laba,dis,biaya,total}=calcK();
-    const tx={tanggal:gv('kTgl')||tglNow(),invoice:gv('kInv'),customer:gv('kCust'),
+    const tx={tanggal:gv('kTgl')||tglNow(),invoice:invNo,customer:gv('kCust'),wa:document.getElementById('kWA')?.value?.trim()||'',
       items:kasirItems.map(i=>({...i})),sub,laba,dis,biaya,total,catatan:gv('kCatatan'),ts:Date.now()};
+    // Simpan/update pelanggan ke daftar customers
+    if(tx.customer){
+      const custKey='cust_'+tx.customer.toLowerCase().replace(/[^a-z0-9]/g,'_');
+      await fbSet('pelanggan/'+custKey,{nama:tx.customer,wa:tx.wa||'',lastTx:tx.tanggal,ts:Date.now()});
+    }
     await fbPush('transaksi',tx);
     // update stok
     const prodRaw=await fbGet('produk');
@@ -995,6 +1014,168 @@ async function renderLaporan(){
     <div class="chart-row"><div class="chart-label">${tglFmt(tgl)}</div>
     <div class="chart-track"><div class="chart-fill" style="width:${Math.max(3,Math.round(v/mH*100))}%"><small>${rp(v)}</small></div></div>
     <div class="chart-val">${rp(v)}</div></div>`).join('')+'</div>':'<div class="empty">Belum ada data.</div>';
+}
+
+// ════════════════════════════════════════════
+// CUSTOMER SEARCH AUTOCOMPLETE
+// ════════════════════════════════════════════
+async function onCustInput(inp){
+  const q=inp.value.trim().toLowerCase();
+  const ac=document.getElementById('acCust');
+  if(!ac)return;
+  if(q.length<1){ac.style.display='none';return;}
+  const raw=await fbGet('pelanggan');
+  if(!raw){ac.style.display='none';return;}
+  const list=Object.values(raw).filter(c=>c.nama&&c.nama.toLowerCase().includes(q)).slice(0,8);
+  if(!list.length){ac.style.display='none';return;}
+  ac.innerHTML=list.map(c=>`
+    <div class="ac-item" onmousedown="selCust('${esc(c.nama)}','${esc(c.wa||'')}')">
+      <span>${c.nama}</span>
+      <small>${c.wa?'+62'+c.wa:''}</small>
+    </div>`).join('');
+  ac.style.display='block';
+}
+function selCust(nama,wa){
+  const inp=document.getElementById('kCust');
+  const waInp=document.getElementById('kWA');
+  if(inp)inp.value=nama;
+  if(waInp&&wa)waInp.value=wa;
+  const ac=document.getElementById('acCust');
+  if(ac)ac.style.display='none';
+  refreshBill();
+}
+document.addEventListener('click',e=>{
+  const ac=document.getElementById('acCust');
+  if(ac&&!ac.contains(e.target)&&e.target.id!=='kCust')ac.style.display='none';
+});
+
+// ════════════════════════════════════════════
+// LAPORAN STOK HARIAN
+// ════════════════════════════════════════════
+async function stokharian(){
+  const today=tglNow();
+  document.getElementById('topbarActions').innerHTML=`
+    <input type="date" id="shDari" value="${today.slice(0,8)}01" onchange="renderStokHarian()">
+    <span style="color:var(--text3);font-size:12px">s/d</span>
+    <input type="date" id="shSampai" value="${today}" onchange="renderStokHarian()">`;
+  document.getElementById('pageContent').innerHTML=`
+  <div id="shContent"><div class="empty"><div class="spinner" style="margin:0 auto 8px"></div>Memuat data stok...</div></div>`;
+  await renderStokHarian();
+}
+
+async function renderStokHarian(){
+  const [txRaw,prodRaw]=await Promise.all([fbGet('transaksi'),fbGet('produk')]);
+  let txs=txRaw?Object.values(txRaw):[];
+  const dari=document.getElementById('shDari')?.value;
+  const sampai=document.getElementById('shSampai')?.value;
+  if(dari)txs=txs.filter(t=>t.tanggal>=dari);
+  if(sampai)txs=txs.filter(t=>t.tanggal<=sampai);
+
+  // Kelompokkan per tanggal
+  const byDate={};
+  txs.forEach(t=>{
+    const tgl=t.tanggal||'?';
+    if(!byDate[tgl])byDate[tgl]={txs:[],totalOmzet:0,totalLaba:0};
+    byDate[tgl].txs.push(t);
+    byDate[tgl].totalOmzet+=t.total||0;
+    byDate[tgl].totalLaba+=(t.laba||0);
+  });
+
+  // Stok awal dari produk (stok sekarang + total terjual)
+  const produkMap={};
+  if(prodRaw)Object.values(prodRaw).forEach(p=>{produkMap[p.nama]=p;});
+
+  // Hitung qty terjual per produk per hari
+  const tglList=Object.keys(byDate).sort().reverse();
+
+  const cont=document.getElementById('shContent');
+  if(!tglList.length){
+    cont.innerHTML=`<div class="empty">Tidak ada data dalam rentang tanggal ini.</div>`;
+    return;
+  }
+
+  let html='';
+  tglList.forEach(tgl=>{
+    const d=byDate[tgl];
+    // Hitung item terjual hari ini
+    const itemMap={};
+    d.txs.forEach(t=>{
+      (t.items||[]).forEach(i=>{
+        if(!itemMap[i.nama])itemMap[i.nama]={nama:i.nama,qtyJual:0,omzet:0,hpp:0};
+        itemMap[i.nama].qtyJual+=i.qty||0;
+        itemMap[i.nama].omzet+=(i.harga*i.qty)||0;
+        itemMap[i.nama].hpp+=((i.hpp||0)*i.qty)||0;
+      });
+    });
+    const items=Object.values(itemMap).sort((a,b)=>b.qtyJual-a.qtyJual);
+
+    html+=`
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-header" style="cursor:pointer" onclick="toggleShDay('shday_${tgl.replace(/-/g,'')}')">
+        <span style="font-size:16px">📅</span>
+        <h3 style="flex:1">${tglFull(tgl)}</h3>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span class="badge badge-green">${d.txs.length} transaksi</span>
+          <span class="badge badge-blue">${items.length} produk</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--green)">${rp(d.totalOmzet)}</span>
+          <span style="font-size:13px;color:var(--text3)">▾</span>
+        </div>
+      </div>
+      <div id="shday_${tgl.replace(/-/g,'')}" style="display:block">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;padding:12px 14px;background:var(--surface2);border-bottom:1px solid var(--border)">
+          <div><div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase">Omzet</div><div style="font-size:15px;font-weight:800;color:var(--green);font-family:'JetBrains Mono',monospace">${rp(d.totalOmzet)}</div></div>
+          <div><div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase">Laba</div><div style="font-size:15px;font-weight:800;color:var(--orange);font-family:'JetBrains Mono',monospace">${rp(d.totalLaba)}</div></div>
+          <div><div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase">Transaksi</div><div style="font-size:15px;font-weight:800;font-family:'JetBrains Mono',monospace">${d.txs.length}</div></div>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl" style="min-width:380px">
+            <thead><tr>
+              <th>Produk</th>
+              <th class="text-right">Terjual</th>
+              <th class="text-right">Omzet</th>
+              <th class="text-right">Laba</th>
+              <th class="text-right">Sisa Stok</th>
+            </tr></thead>
+            <tbody>
+              ${items.length?items.map(i=>{
+                const p=produkMap[i.nama];
+                const sisaStok=p&&p.stok!==undefined&&p.stok!==null?Number(p.stok):null;
+                const stokCell=sisaStok!==null
+                  ?`<span class="badge ${sisaStok<=0?'badge-red':sisaStok<=5?'badge-yellow':'badge-green'}">${sisaStok} ${p.satuan||'pcs'}</span>`
+                  :`<span class="text-muted">-</span>`;
+                return`<tr>
+                  <td><strong>${i.nama}</strong></td>
+                  <td class="text-right"><span class="mono">${i.qtyJual}</span> <small class="text-muted">${p?.satuan||'pcs'}</small></td>
+                  <td class="text-right mono">${rp(i.omzet)}</td>
+                  <td class="text-right"><span class="badge ${(i.omzet-i.hpp)>=0?'badge-green':'badge-red'}">${rp(i.omzet-i.hpp)}</span></td>
+                  <td class="text-right">${stokCell}</td>
+                </tr>`;}).join(''):`<tr><td colspan="5"><div class="empty" style="padding:12px">Tidak ada item.</div></td></tr>`}
+            </tbody>
+          </table>
+        </div>
+        <div style="padding:10px 14px;border-top:1px solid var(--border)">
+          <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px;text-transform:uppercase">Detail Transaksi</div>
+          <div style="display:flex;flex-direction:column;gap:5px">
+            ${d.txs.slice().sort((a,b)=>b.ts-a.ts).map(t=>`
+              <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;background:var(--surface2);border-radius:var(--r-sm);font-size:12px;flex-wrap:wrap">
+                <code style="font-size:11px;color:var(--text3)">${t.invoice||'—'}</code>
+                <span style="flex:1;font-weight:600">${t.customer||'Umum'}</span>
+                ${t.wa?`<a href="https://wa.me/62${t.wa}" target="_blank" style="color:var(--wa);font-size:11px;font-weight:700">📱 WA</a>`:''}
+                <span class="mono" style="font-size:12px;color:var(--green-d)">${rp(t.total)}</span>
+                <span class="badge ${(t.laba||0)>=0?'badge-green':'badge-red'}" style="font-size:10px">${rp(t.laba||0)}</span>
+              </div>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  });
+
+  cont.innerHTML=html;
+}
+
+function toggleShDay(id){
+  const el=document.getElementById(id);
+  if(el)el.style.display=el.style.display==='none'?'block':'none';
 }
 
 // ════════════════════════════════════════════
