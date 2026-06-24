@@ -479,11 +479,21 @@ function initApp(){
   showPage('dashboard');
 }
 
-// Auto-init if config already saved
+// Hardcoded Firebase config — tidak perlu input manual lagi
+const HARDCODED_FIREBASE_CFG = {
+  apiKey: "AIzaSyBt39hbmduJ-d9d8zkeR5V9qJOJ0FC-yS8",
+  authDomain: "kasirku-toko-a76bd.firebaseapp.com",
+  databaseURL: "https://kasirku-toko-a76bd-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "kasirku-toko-a76bd",
+  storageBucket: "kasirku-toko-a76bd.firebasestorage.app",
+  messagingSenderId: "542381331825",
+  appId: "1:542381331825:web:18d0c175a4be94540b12d0"
+};
+
+// Auto-init dengan config hardcoded, simpan juga ke LS agar fitur "Ganti Config" tetap bisa baca
 window.addEventListener('DOMContentLoaded',()=>{
-  const cfg=LS('fbConfig');
-  if(cfg&&cfg.databaseURL) initFirebase(cfg);
-  // else modal stays open
+  LS('fbConfig', HARDCODED_FIREBASE_CFG);
+  initFirebase(HARDCODED_FIREBASE_CFG);
 });
 
 // ════════════════════════════════════════════
