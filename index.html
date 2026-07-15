@@ -328,13 +328,12 @@ hr.sep{border:none;border-top:1px dashed var(--border);margin:13px 0}
   </div>
   <div class="sb-section">Utama</div>
   <button class="sb-item" data-page="dashboard"><span class="ico">📊</span><span>Dashboard</span></button>
-  <button class="sb-item" data-page="kasir"><span class="ico">🛒</span><span>Kasir</span></button>
+  <button class="sb-item" data-page="kasir"><span class="ico">🛒</span><span>Kasir – Catat Penjualan</span></button>
   <button class="sb-item" data-page="produk"><span class="ico">📦</span><span>Produk & Stok</span></button>
   <div class="sb-section">Laporan</div>
   <button class="sb-item" data-page="riwayat"><span class="ico">📋</span><span>Riwayat Transaksi</span></button>
   <button class="sb-item" data-page="laporan"><span class="ico">📈</span><span>Laporan Penjualan</span></button>
   <button class="sb-item" data-page="stokharian"><span class="ico">📉</span><span>Stok Harian</span></button>
-  <button class="sb-item" data-page="cashopname"><span class="ico">💵</span><span>Cash Opname</span></button>
   <div class="sb-section">Lainnya</div>
   <button class="sb-item" data-page="pengaturan"><span class="ico">⚙️</span><span>Pengaturan</span></button>
   <div class="sb-foot">
@@ -370,7 +369,6 @@ hr.sep{border:none;border-top:1px dashed var(--border);margin:13px 0}
     <button class="bn-item" data-page="riwayat"><span class="ico">📋</span><span>Riwayat</span></button>
     <button class="bn-item" data-page="laporan"><span class="ico">📈</span><span>Laporan</span></button>
     <button class="bn-item" data-page="stokharian"><span class="ico">📉</span><span>Stok</span></button>
-    <button class="bn-item" data-page="cashopname"><span class="ico">💵</span><span>Cash</span></button>
     <button class="bn-item" data-page="pengaturan"><span class="ico">⚙️</span><span>Setting</span></button>
     <button class="bn-item" onclick="doLogout()"><span class="ico">🚪</span><span>Keluar</span></button>
   </div>
@@ -399,7 +397,27 @@ hr.sep{border:none;border-top:1px dashed var(--border);margin:13px 0}
   </div>
 </div>
 
-<!-- MODAL CASH OPNAME -->
+<!-- MODAL CATAT PEMBELIAN STOK -->
+<div class="overlay" id="modalPembelian">
+  <div class="modal">
+    <div class="modal-header"><h3>📥 Catat Pembelian Stok</h3><button class="btn btn-secondary btn-sm" onclick="closeModal('modalPembelian')">✕</button></div>
+    <div class="modal-body">
+      <p style="font-size:12.5px;color:var(--text3);margin-bottom:14px">Catat setiap kali kulakan / beli stok baru. Stok produk otomatis nambah begitu disimpan.</p>
+      <div class="grid-2">
+        <div class="field full"><label>Pilih Produk *</label><select id="pbProduk" onchange="onPembelianProdukChange()"></select></div>
+        <div class="field"><label>Jumlah Beli *</label><input type="number" id="pbQty" placeholder="0" min="1"></div>
+        <div class="field"><label>Harga Beli / Satuan (Rp)</label><input type="number" id="pbHarga" placeholder="0" min="0"></div>
+        <div class="field full"><label>Catatan</label><input id="pbCatatan" placeholder="Contoh: beli di agen Pak Budi"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalPembelian')">Batal</button>
+      <button class="btn btn-primary" onclick="savePembelian()">💾 Simpan & Tambah Stok</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CASH OPNAME (nonaktif, menu dihapus) -->
 <div class="overlay" id="modalCash">
   <div class="modal">
     <div class="modal-header"><h3>Catat Cash Opname</h3><button class="btn btn-secondary btn-sm" onclick="closeModal('modalCash')">✕</button></div>
@@ -447,7 +465,7 @@ let demoData = { toko:{nama:'Toko Demo',telepon:'',alamat:'',catatan_bill:''}, p
 // GANTI email ini dengan email akun admin (kamu). Harus sama persis dengan
 // email yang dipakai login, dan harus sama persis dengan yang ditulis di
 // Firebase Security Rules (lihat catatan di bawah / dokumentasi terpisah).
-const ADMIN_EMAIL = 'ssrrayu12833@gmail.com';
+const ADMIN_EMAIL = 'ssrrayu12833+admin@gmail.com';
 let STORE_UID = null;      // uid toko yang sedang login (null utk admin/demo)
 let STORE_ACTIVE = true;
 
@@ -669,6 +687,7 @@ async function downloadBackupJSON(){
       toko:await fbGet('toko'),
       produk:await fbGet('produk'),
       transaksi:await fbGet('transaksi'),
+      pembelian_stok:await fbGet('pembelian_stok'),
       cash_opname:await fbGet('cash_opname'),
       pelanggan:await fbGet('pelanggan')
     };
@@ -819,9 +838,9 @@ window.addEventListener('DOMContentLoaded',()=>{
 // ROUTER
 // ════════════════════════════════════════════
 const pageTitles={
-  dashboard:'📊 Dashboard', kasir:'🛒 Kasir',
+  dashboard:'📊 Dashboard', kasir:'🛒 Kasir – Catat Penjualan',
   produk:'📦 Produk & Stok', riwayat:'📋 Riwayat Transaksi',
-  laporan:'📈 Laporan Penjualan', stokharian:'📉 Laporan Stok Harian', cashopname:'💵 Cash Opname',
+  laporan:'📈 Laporan Penjualan', stokharian:'📉 Laporan Stok Harian',
   pengaturan:'⚙️ Pengaturan'
 };
 function showPage(p){
@@ -829,7 +848,7 @@ function showPage(p){
   document.getElementById('pageTitle').textContent=pageTitles[p]||p;
   document.getElementById('topbarActions').innerHTML='';
   document.getElementById('pageContent').innerHTML='<div class="empty"><div class="spinner" style="margin:0 auto"></div></div>';
-  ({dashboard,kasir,produkPage,riwayat,laporan,stokharian,cashopname,pengaturan})[p==='produk'?'produkPage':p]();
+  ({dashboard,kasir,produkPage,riwayat,laporan,stokharian,pengaturan})[p==='produk'?'produkPage':p]();
 }
 
 // ════════════════════════════════════════════
@@ -860,9 +879,8 @@ function loading(show){document.getElementById('loadingWrap').classList.toggle('
 // DASHBOARD
 // ════════════════════════════════════════════
 async function dashboard(){
-  const [txRaw,coRaw]=await Promise.all([fbGet('transaksi'),fbGet('cash_opname')]);
+  const txRaw=await fbGet('transaksi');
   const txs=txRaw?Object.values(txRaw):[];
-  const cos=coRaw?Object.values(coRaw):[];
   const today=tglNow(),month=today.slice(0,7);
   const todayTxs=txs.filter(t=>t.tanggal===today);
   const monthTxs=txs.filter(t=>t.tanggal&&t.tanggal.startsWith(month));
@@ -878,8 +896,6 @@ async function dashboard(){
   monthTxs.forEach(t=>(t.items||[]).forEach(i=>{salesMap[i.nama]=(salesMap[i.nama]||0)+(i.harga*i.qty)}));
   const topProduk=Object.entries(salesMap).sort((a,b)=>b[1]-a[1]).slice(0,7);
   const maxV=topProduk[0]?topProduk[0][1]:1;
-
-  const lastCash=cos.sort((a,b)=>a.tanggal>b.tanggal?1:-1).slice(-1)[0];
 
   document.getElementById('pageContent').innerHTML=`
   <div class="stats">
@@ -908,13 +924,7 @@ async function dashboard(){
           '</tbody></table>':'<div class="empty">Belum ada transaksi.</div>'}
       </div>
     </div>
-  </div>
-  ${lastCash?`<div class="card"><div class="card-header"><h3>💵 Cash Opname Terakhir</h3></div>
-    <div class="card-body"><div class="stats" style="margin-bottom:0">
-      <div class="stat"><div class="stat-label">Tanggal</div><div style="font-size:15px;font-weight:700;margin-top:5px">${tglFmt(lastCash.tanggal)} — ${lastCash.shift}</div></div>
-      <div class="stat blue"><div class="stat-label">Saldo Fisik</div><div class="stat-value">${rp(lastCash.fisik)}</div></div>
-      <div class="stat ${(lastCash.selisih||0)<0?'red':'green'}"><div class="stat-label">Selisih</div><div class="stat-value">${rp(lastCash.selisih||0)}</div></div>
-    </div></div></div>`:''}`;
+  </div>`;
 }
 
 // ════════════════════════════════════════════
@@ -1138,6 +1148,7 @@ function printBill(){
 async function produkPage(){
   document.getElementById('topbarActions').innerHTML=`
     <input type="search" id="produkQ" placeholder="Cari produk..." oninput="renderProdukTbl()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:13px;outline:none;width:170px">
+    <button class="btn btn-secondary" onclick="openPembelian()">📥 Catat Pembelian Stok</button>
     <button class="btn btn-primary" onclick="openAddProduk()">＋ Tambah</button>`;
   document.getElementById('pageContent').innerHTML=`
   <div class="card">
@@ -1222,6 +1233,51 @@ async function delProduk(id){
   if(!confirm('Hapus produk ini?'))return;
   loading(true);
   try{await fbRemove('produk/'+id);showToast('🗑️ Dihapus');await renderProdukTbl();}
+  finally{loading(false);}
+}
+
+// ── CATAT PEMBELIAN STOK ──
+let pembelianProdukList=[];
+async function openPembelian(){
+  const raw=await fbGet('produk');
+  pembelianProdukList=raw?Object.entries(raw).map(([id,p])=>({...p,_id:id})):[];
+  const sel=document.getElementById('pbProduk');
+  if(!pembelianProdukList.length){
+    sel.innerHTML='<option value="">-- Belum ada produk, tambah produk dulu --</option>';
+  }else{
+    sel.innerHTML=pembelianProdukList.map(p=>`<option value="${p._id}">${esc(p.nama)} (stok saat ini: ${p.stok!==undefined&&p.stok!==null?p.stok:0})</option>`).join('');
+  }
+  document.getElementById('pbQty').value='';
+  document.getElementById('pbHarga').value='';
+  document.getElementById('pbCatatan').value='';
+  onPembelianProdukChange();
+  openModal('modalPembelian');
+}
+function onPembelianProdukChange(){
+  const id=document.getElementById('pbProduk').value;
+  const p=pembelianProdukList.find(x=>x._id===id);
+  if(p&&p.hpp) document.getElementById('pbHarga').value=p.hpp;
+}
+async function savePembelian(){
+  const id=document.getElementById('pbProduk').value;
+  const qty=Number(document.getElementById('pbQty').value);
+  const hargaBeli=rpN(document.getElementById('pbHarga').value);
+  const catatan=document.getElementById('pbCatatan').value.trim();
+  if(!id){showToast('⚠️ Pilih produk dulu!',false);return;}
+  if(!qty||qty<=0){showToast('⚠️ Jumlah beli wajib diisi!',false);return;}
+  loading(true);
+  try{
+    const p=await fbGet('produk/'+id);
+    if(!p){showToast('⚠️ Produk tidak ditemukan',false);return;}
+    const stokBaru=(Number(p.stok)||0)+qty;
+    const updates={stok:stokBaru};
+    if(hargaBeli>0) updates.hpp=hargaBeli; // update modal terbaru
+    await fbUpdate('produk/'+id,updates);
+    await fbPush('pembelian_stok',{produkId:id,namaProduk:p.nama,qty,hargaBeli,catatan,tanggal:tglNow(),ts:Date.now()});
+    closeModal('modalPembelian');
+    showToast(`✅ Stok "${p.nama}" bertambah ${qty}, sekarang: ${stokBaru}`);
+    await renderProdukTbl();
+  }catch(e){showToast('⚠️ Gagal: '+e.message,false);}
   finally{loading(false);}
 }
 
