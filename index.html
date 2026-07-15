@@ -352,6 +352,10 @@ hr.sep{border:none;border-top:1px dashed var(--border);margin:13px 0}
       <div id="topbarActions"></div>
     </div>
   </div>
+  <div id="verifyBanner" style="display:none;align-items:center;gap:10px;background:var(--yellow-l);color:#7a5b00;padding:10px 20px;font-size:12px;font-weight:600">
+    <span>📧 Email kamu belum diverifikasi. Cek inbox/spam untuk link verifikasi.</span>
+    <button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="resendVerification()">Kirim ulang</button>
+  </div>
   <div class="content" id="pageContent">
     <div class="empty">Memuat data...</div>
   </div>
@@ -575,9 +579,10 @@ async function doRegister(){
   try{
     const cred=await auth.createUserWithEmailAndPassword(email,pass);
     const uid=cred.user.uid, now=Date.now();
-    await fbSetRaw('storeIndex/'+uid,{nama:toko,email,wa:wa||'',active:true,createdAt:now,lastLogin:now});
+    await fbSetRaw('storeIndex/'+uid,{nama:toko,email,wa:wa||'',active:true,createdAt:now,lastLogin:now,emailVerified:false});
     STORE_UID=uid;
     await fbSet('toko',{nama:toko,telepon:wa||'',alamat:'',catatan_bill:''});
+    cred.user.sendEmailVerification().catch(()=>{});
     showToast('🎉 Toko berhasil didaftarkan, selamat datang!');
   }catch(e){authErr(friendlyAuthError(e));}
   finally{loading(false);}
@@ -628,11 +633,14 @@ async function onAuthChange(user){
       return;
     }
     STORE_UID=user.uid;STORE_ACTIVE=true;
-    fbUpdateRaw('storeIndex/'+user.uid,{lastLogin:Date.now()});
+    await user.reload().catch(()=>{});
+    const verified=!!user.emailVerified;
+    fbUpdateRaw('storeIndex/'+user.uid,{lastLogin:Date.now(),emailVerified:verified});
     hideAuthScreen();
     document.getElementById('adminScreen').style.display='none';
     document.getElementById('appShell').style.display='';
     document.getElementById('sbStoreName').textContent='🏪 '+(idx.nama||'Toko');
+    document.getElementById('verifyBanner').style.display=verified?'none':'flex';
     initApp();
   }catch(e){ authErr('Gagal memuat data: '+e.message); }
   finally{ loading(false); }
@@ -643,6 +651,64 @@ async function onAuthChange(user){
 // ════════════════════════════════════════════
 let kasirItems=[];
 let produkEditId=null;
+
+function triggerDownload(filename,content,mime){
+  const blob=new Blob([content],{type:mime});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=filename;
+  document.body.appendChild(a);a.click();a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function downloadBackupJSON(){
+  loading(true);
+  try{
+    const data={
+      dicadangkan_pada:new Date().toISOString(),
+      toko:await fbGet('toko'),
+      produk:await fbGet('produk'),
+      transaksi:await fbGet('transaksi'),
+      cash_opname:await fbGet('cash_opname'),
+      pelanggan:await fbGet('pelanggan')
+    };
+    const tgl=new Date().toISOString().slice(0,10);
+    triggerDownload(`backup-kasirku-${tgl}.json`,JSON.stringify(data,null,2),'application/json');
+    showToast('📥 Backup berhasil diunduh');
+  }catch(e){showToast('⚠️ Gagal backup: '+e.message,false);}
+  finally{loading(false);}
+}
+
+function csvCell(v){
+  const s=(v===undefined||v===null)?'':String(v);
+  return '"'+s.replace(/"/g,'""')+'"';
+}
+
+async function downloadTransaksiCSV(){
+  loading(true);
+  try{
+    const trxRaw=await fbGet('transaksi')||{};
+    const rows=Object.values(trxRaw).sort((a,b)=>(a.ts||0)-(b.ts||0));
+    let csv='Tanggal,No Invoice,Customer,No WA,Jumlah Item,Subtotal,Diskon,Biaya Lain,Laba,Total,Catatan\n';
+    rows.forEach(t=>{
+      const itemCount=(t.items||[]).reduce((n,i)=>n+(Number(i.qty)||0),0);
+      csv+=[csvCell(t.tanggal),csvCell(t.invoice),csvCell(t.customer),csvCell(t.wa),csvCell(itemCount),
+        csvCell(t.sub||0),csvCell(t.dis||0),csvCell(t.biaya||0),csvCell(t.laba||0),csvCell(t.total||0),csvCell(t.catatan)].join(',')+'\n';
+    });
+    const tgl=new Date().toISOString().slice(0,10);
+    triggerDownload(`transaksi-kasirku-${tgl}.csv`,'\uFEFF'+csv,'text/csv;charset=utf-8');
+    showToast('📊 Riwayat transaksi berhasil diunduh ('+rows.length+' transaksi)');
+  }catch(e){showToast('⚠️ Gagal export: '+e.message,false);}
+  finally{loading(false);}
+}
+
+async function resendVerification(){
+  if(!auth||!auth.currentUser)return;
+  try{
+    await auth.currentUser.sendEmailVerification();
+    showToast('📧 Email verifikasi dikirim ulang, cek inbox/spam');
+  }catch(e){showToast('⚠️ Gagal kirim: '+e.message,false);}
+}
 
 function initApp(){
   // nav items
@@ -681,6 +747,7 @@ async function renderAdminPanel(){
         <div class="si">
           <strong>${esc(s.nama||'-')}</strong>
           <span class="badge ${s.active===false?'off':'on'}">${s.active===false?'Nonaktif':'Aktif'}</span>
+          <span class="badge ${s.emailVerified?'on':'off'}">${s.emailVerified?'Email Terverifikasi':'Email Belum Verifikasi'}</span>
           <p>${esc(s.email||'-')} ${s.wa?'· 📱'+esc(s.wa):''}</p>
           <p>Daftar: ${fmt(s.createdAt)} · Login terakhir: ${fmt(s.lastLogin)}</p>
         </div>
@@ -1512,6 +1579,16 @@ async function pengaturan(){
         <div class="field full"><label>Catatan Default di Bill</label><textarea id="stCatatan" placeholder="Contoh: Transfer ke BCA 123456 a/n ...">${esc(toko.catatan_bill||'')}</textarea></div>
       </div>
       <div class="mt-12"><button class="btn btn-primary" onclick="savePengaturan()">💾 Simpan</button></div>
+    </div>
+  </div>
+  <div class="card mt-16" style="max-width:560px">
+    <div class="card-header"><span>💾</span><h3>Backup Data</h3></div>
+    <div class="card-body">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Unduh salinan data tokomu ke file. Simpan berkala biar aman kalau butuh arsip atau pindah sistem.</p>
+      <div style="display:flex;gap:9px;flex-wrap:wrap">
+        <button class="btn btn-secondary" onclick="downloadBackupJSON()">📥 Backup Lengkap (.json)</button>
+        <button class="btn btn-secondary" onclick="downloadTransaksiCSV()">📊 Riwayat Transaksi (.csv untuk Excel)</button>
+      </div>
     </div>
   </div>
   <div class="card mt-16" style="max-width:560px">
