@@ -702,6 +702,8 @@ async function onAuthChange(user){
 // ════════════════════════════════════════════
 let kasirItems=[];
 let kasirSavedBillText=null;
+let kasirSavedStrukBlob=null;
+let kasirSavedToko=null;
 let produkEditId=null;
 
 function triggerDownload(filename,content,mime){
@@ -967,6 +969,8 @@ async function dashboard(){
 function kasir(){
   kasirItems=[];
   kasirSavedBillText=null;
+  kasirSavedStrukBlob=null;
+  kasirSavedToko=null;
   document.getElementById('topbarActions').innerHTML=`<button class="btn btn-secondary btn-sm" onclick="kasir()">🔄 Reset</button>`;
   document.getElementById('pageContent').innerHTML=`
   <div class="kasir-layout">
@@ -1017,7 +1021,7 @@ function kasir(){
             <button class="btn btn-primary btn-full" style="padding:13px" onclick="simpanTx()">💾 Simpan Transaksi</button>
             <button class="btn btn-wa" id="btnKirimWA" onclick="kirimWA()">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-              Buka Chat & Siapkan Foto Struk
+              Kirim Foto Struk ke WhatsApp
             </button>
             <div style="display:flex;gap:8px">
               <button class="btn btn-secondary btn-full" onclick="copyBill()">📋 Salin</button>
@@ -1171,6 +1175,8 @@ async function simpanTx(){
       if(Object.keys(updates).length) await fbUpdate('',updates);
     }
     kasirSavedBillText=buildBill(toko,{sub,dis,biaya,total});
+    kasirSavedToko=toko;
+    try{ kasirSavedStrukBlob=await strukToBlob(toko,{sub,dis,biaya,total}); }catch(e){ kasirSavedStrukBlob=null; }
     updateSaveStatus(kasirSavedBillText);
     showToast('✅ Transaksi disimpan! Sekarang kamu bisa kirim foto struknya ke WhatsApp 📤');
   }finally{loading(false);}
@@ -1236,39 +1242,46 @@ async function strukToBlob(toko,totals){
   }
 }
 
-async function kirimWA(){
+function kirimWA(){
   const no=normalizeWaNumber(document.getElementById('kWA')?.value);
   if(!no){showToast('⚠️ Masukkan nomor WA!',false);return;}
   if(!kasirItems.length){showToast('⚠️ Tambah item dulu!',false);return;}
-  const toko=await fbGet('toko')||{};
-  const currentBill=buildBill(toko,calcK());
-  if(kasirSavedBillText===null||kasirSavedBillText!==currentBill){
+  const currentBill=buildBill(kasirSavedToko||{},calcK());
+  if(kasirSavedBillText===null||kasirSavedBillText!==currentBill||!kasirSavedStrukBlob){
     showToast('⚠️ Simpan transaksi dulu sebelum kirim ke WhatsApp!',false);
     updateSaveStatus(currentBill);
     return;
   }
-  loading(true);
+  const inv=gv('kInv')||'struk';
+  const blob=kasirSavedStrukBlob;
+  const file=new File([blob],`struk-${inv}.png`,{type:'image/png'});
+
+  // Di HP: pakai Share bawaan HP → foto langsung terlampir, tinggal tap kontak WA tujuan.
+  // Dipanggil TANPA await di depannya supaya masih dianggap aksi tap langsung oleh browser.
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    navigator.share({files:[file],title:'Struk Transaksi',text:`Struk transaksi ${inv}`}).catch(e=>{
+      if(e&&e.name==='AbortError')return; // dibatalkan user
+      kirimWAFallback(blob,inv,no);
+    });
+    return;
+  }
+  kirimWAFallback(blob,inv,no);
+}
+
+async function kirimWAFallback(blob,inv,no){
+  let copied=false;
   try{
-    const blob=await strukToBlob(toko,calcK());
-    if(!blob){showToast('⚠️ Gagal membuat foto struk',false);return;}
-    const inv=gv('kInv')||'struk';
-    let copied=false;
-    try{
-      if(navigator.clipboard&&window.ClipboardItem){
-        await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
-        copied=true;
-      }
-    }catch(e){copied=false;}
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');a.href=url;a.download=`struk-${inv}.png`;a.click();
-    URL.revokeObjectURL(url);
-    // buka langsung chat WhatsApp ke nomor yang ditulis
-    window.open(`https://wa.me/62${no}`,'_blank');
-    if(copied) showToast('✅ Chat WhatsApp ke nomor tsb sudah dibuka! Foto struk sudah tersalin, tinggal tempel (paste/tekan lama → Paste) di kotak chatnya.');
-    else showToast('✅ Chat WhatsApp ke nomor tsb sudah dibuka! Foto struk sudah didownload, tinggal lampirkan dari galeri/folder Download.');
-  }catch(e){
-    showToast('⚠️ Gagal kirim: '+e.message,false);
-  }finally{loading(false);}
+    if(navigator.clipboard&&window.ClipboardItem){
+      await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+      copied=true;
+    }
+  }catch(e){copied=false;}
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=`struk-${inv}.png`;a.click();
+  URL.revokeObjectURL(url);
+  window.open(`https://wa.me/62${no}`,'_blank');
+  if(copied) showToast('✅ Chat WhatsApp ke nomor tsb sudah dibuka! Foto struk sudah tersalin, tinggal tempel (paste/tekan lama → Paste) di kotak chatnya.');
+  else showToast('✅ Chat WhatsApp ke nomor tsb sudah dibuka! Foto struk sudah didownload, tinggal lampirkan dari galeri/folder Download.');
 }
 async function copyBill(){
   const toko=await fbGet('toko')||{};
