@@ -217,6 +217,36 @@ hr.sep{border:none;border-top:1px dashed var(--border);margin:13px 0}
 .step-body strong{font-size:14px;font-weight:700;display:block;margin-bottom:3px}
 .step-body p{font-size:12px;color:var(--text2);line-height:1.5}
 
+/* AUTH SCREEN */
+.auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(160deg,var(--green-d),var(--green) 120%)}
+.auth-card{background:#fff;border-radius:var(--r-lg);box-shadow:var(--sh-lg);max-width:420px;width:100%;padding:30px 28px;}
+.auth-brand{text-align:center;margin-bottom:22px}
+.auth-brand h1{font-size:20px;font-weight:800;color:var(--green-d)}
+.auth-brand p{font-size:12px;color:var(--text3);margin-top:3px}
+.auth-tabs{display:flex;background:var(--surface2);border-radius:var(--r-sm);padding:3px;margin-bottom:20px}
+.auth-tab{flex:1;text-align:center;padding:8px;font-size:13px;font-weight:700;border-radius:6px;border:none;background:none;color:var(--text3);cursor:pointer;transition:all .15s}
+.auth-tab.active{background:#fff;color:var(--green-d);box-shadow:var(--sh)}
+.auth-form{display:flex;flex-direction:column;gap:12px}
+.auth-form .field label{font-size:11px}
+.auth-err{background:var(--red-l);color:var(--red);font-size:12px;padding:9px 11px;border-radius:var(--r-sm);display:none}
+.auth-err.show{display:block}
+.auth-foot{text-align:center;margin-top:16px;font-size:12px;color:var(--text3)}
+.auth-foot a{color:var(--blue);font-weight:700;cursor:pointer}
+.auth-demo{text-align:center;margin-top:10px}
+.auth-demo a{font-size:12px;color:var(--text3);text-decoration:underline;cursor:pointer}
+
+/* ADMIN PANEL */
+.admin-topbar{background:var(--green-d);color:#fff;padding:14px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100}
+.admin-topbar h2{font-size:16px;font-weight:700;flex:1}
+.admin-wrap{max-width:920px;margin:0 auto;padding:20px}
+.store-row{background:#fff;border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;box-shadow:var(--sh)}
+.store-row .si{flex:1;min-width:180px}
+.store-row .si strong{font-size:14px}
+.store-row .si p{font-size:12px;color:var(--text3);margin-top:2px}
+.badge{font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px}
+.badge.on{background:var(--green-l);color:var(--green-d)}
+.badge.off{background:var(--red-l);color:var(--red)}
+
 /* UTIL */
 .mt-12{margin-top:12px}.mt-16{margin-top:16px}.mt-20{margin-top:20px}
 .flex{display:flex}.gap-8{gap:8px}.gap-10{gap:10px}.items-center{align-items:center}.justify-between{justify-content:space-between}
@@ -227,7 +257,41 @@ hr.sep{border:none;border-top:1px dashed var(--border);margin:13px 0}
 </head>
 <body>
 
-<div class="shell">
+<!-- AUTH SCREEN (login / daftar toko) -->
+<div class="auth-wrap" id="authScreen" style="display:none">
+  <div class="auth-card">
+    <div class="auth-brand"><h1>🧾 KasirKu</h1><p>POS & Mini ATM untuk UMKM</p></div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tabLogin" onclick="switchAuthTab('login')">Masuk</button>
+      <button class="auth-tab" id="tabRegister" onclick="switchAuthTab('register')">Daftar Toko Baru</button>
+    </div>
+    <div class="auth-err" id="authErr"></div>
+    <!-- LOGIN FORM -->
+    <div class="auth-form" id="formLogin">
+      <div class="field"><label>Email</label><input type="email" id="liEmail" placeholder="email@toko.com"></div>
+      <div class="field"><label>Password</label><input type="password" id="liPass" placeholder="Password"></div>
+      <button class="btn btn-primary btn-full" onclick="doLogin()">🔓 Masuk</button>
+      <div class="auth-foot"><a onclick="doForgotPassword()">Lupa password?</a></div>
+    </div>
+    <!-- REGISTER FORM -->
+    <div class="auth-form" id="formRegister" style="display:none">
+      <div class="field"><label>Nama Toko / Usaha *</label><input id="rgToko" placeholder="Contoh: Warung Bu Sari"></div>
+      <div class="field"><label>Email *</label><input type="email" id="rgEmail" placeholder="email@toko.com"></div>
+      <div class="field"><label>Nomor WA (opsional)</label><input id="rgWA" placeholder="08xx"></div>
+      <div class="field"><label>Password *</label><input type="password" id="rgPass" placeholder="Minimal 6 karakter"></div>
+      <button class="btn btn-primary btn-full" onclick="doRegister()">🚀 Daftar & Mulai</button>
+    </div>
+    <div class="auth-demo"><a onclick="useDemoMode()">🧪 Coba mode demo dulu (tanpa daftar)</a></div>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="adminScreen" style="display:none">
+  <div class="admin-topbar"><h2>🛡️ Admin — Pantau Akses Toko</h2><button class="btn btn-secondary btn-sm" onclick="doLogout()">Keluar</button></div>
+  <div class="admin-wrap" id="adminContent"><div class="empty">Memuat data toko...</div></div>
+</div>
+
+<div class="shell" id="appShell" style="display:none">
 <!-- DESKTOP SIDEBAR -->
 <aside class="sidebar">
   <div class="sb-brand"><h1>🧾 KasirKu</h1><p>POS & Mini ATM</p></div>
@@ -242,7 +306,10 @@ hr.sep{border:none;border-top:1px dashed var(--border);margin:13px 0}
   <button class="sb-item" data-page="cashopname"><span class="ico">💵</span><span>Cash Opname</span></button>
   <div class="sb-section">Lainnya</div>
   <button class="sb-item" data-page="pengaturan"><span class="ico">⚙️</span><span>Pengaturan</span></button>
-  <div class="sb-foot">Data disimpan di Firebase ☁️</div>
+  <div class="sb-foot">
+    <div id="sbStoreName" style="color:#fff;font-weight:700;font-size:12px;margin-bottom:6px">-</div>
+    <button class="sb-item" style="margin:0;padding:8px 10px" onclick="doLogout()"><span class="ico">🚪</span><span>Keluar</span></button>
+  </div>
 </aside>
 
 <!-- MAIN -->
@@ -270,6 +337,7 @@ hr.sep{border:none;border-top:1px dashed var(--border);margin:13px 0}
     <button class="bn-item" data-page="stokharian"><span class="ico">📉</span><span>Stok</span></button>
     <button class="bn-item" data-page="cashopname"><span class="ico">💵</span><span>Cash</span></button>
     <button class="bn-item" data-page="pengaturan"><span class="ico">⚙️</span><span>Setting</span></button>
+    <button class="bn-item" onclick="doLogout()"><span class="ico">🚪</span><span>Keluar</span></button>
   </div>
 </nav>
 </div>
@@ -320,48 +388,6 @@ hr.sep{border:none;border-top:1px dashed var(--border);margin:13px 0}
   </div>
 </div>
 
-<!-- MODAL FIREBASE SETUP -->
-<div class="overlay open" id="modalFirebase">
-  <div class="modal" style="max-width:580px">
-    <div class="modal-header"><h3>🔥 Hubungkan Firebase</h3></div>
-    <div class="modal-body">
-      <p style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">
-        KasirKu butuh Firebase Realtime Database supaya data tersimpan di cloud dan bisa diakses dari HP maupun laptop. 
-        Setup ini cukup dilakukan <strong>sekali saja</strong>.
-      </p>
-      <div class="field" style="margin-bottom:16px">
-        <label>Firebase Config (JSON)</label>
-        <textarea id="fbConfigInput" rows="8" placeholder='{
-  "apiKey": "AIza...",
-  "authDomain": "project.firebaseapp.com",
-  "databaseURL": "https://project-default-rtdb.firebaseio.com",
-  "projectId": "project-id",
-  "storageBucket": "project.appspot.com",
-  "messagingSenderId": "123456",
-  "appId": "1:123456:web:abc123"
-}'></textarea>
-      </div>
-      <details style="margin-bottom:14px">
-        <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--blue);margin-bottom:10px">📖 Cara dapat Firebase Config (klik untuk buka)</summary>
-        <div style="padding:12px;background:var(--surface2);border-radius:var(--r-sm);font-size:12px;line-height:1.7;color:var(--text2)">
-          <div class="step"><div class="step-num">1</div><div class="step-body"><strong>Buka Firebase Console</strong><p>Pergi ke <a href="https://console.firebase.google.com" target="_blank" style="color:var(--blue)">console.firebase.google.com</a> → login pakai akun Google</p></div></div>
-          <div class="step"><div class="step-num">2</div><div class="step-body"><strong>Buat Project Baru</strong><p>Klik "Add project" → beri nama (misal: kasirku-toko) → disable Google Analytics → Create Project</p></div></div>
-          <div class="step"><div class="step-num">3</div><div class="step-body"><strong>Tambah Web App</strong><p>Di Project Overview, klik ikon &lt;/&gt; (Web) → beri nama app → klik Register app → <strong>copy config yang muncul</strong></p></div></div>
-          <div class="step"><div class="step-num">4</div><div class="step-body"><strong>Aktifkan Realtime Database</strong><p>Menu kiri → Build → Realtime Database → Create Database → pilih lokasi → <strong>Start in test mode</strong> → Enable</p></div></div>
-          <div class="step"><div class="step-num">5</div><div class="step-body"><strong>Paste config di sini</strong><p>Copy hanya bagian isi objek <code>firebaseConfig = { ... }</code> lalu paste di form di atas</p></div></div>
-        </div>
-      </details>
-      <p style="font-size:11px;color:var(--text3)">Config disimpan di browser kamu (localStorage). Tidak dikirim ke server manapun selain Firebase milikmu sendiri.</p>
-    </div>
-    <div class="modal-footer" style="flex-direction:column;gap:8px">
-      <div style="display:flex;gap:9px;width:100%">
-        <button class="btn btn-secondary btn-full" onclick="useDemoMode()">🧪 Demo (tanpa Firebase)</button>
-        <button class="btn btn-primary btn-full" onclick="connectFirebase()">🔥 Hubungkan Firebase</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- LOADING -->
 <div class="loading-wrap" id="loadingWrap"><div class="spinner"></div><span style="font-size:13px;color:var(--text2)">Menyimpan...</span></div>
 
@@ -371,28 +397,43 @@ hr.sep{border:none;border-top:1px dashed var(--border);margin:13px 0}
 <!-- FIREBASE SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
 <script>
 // ════════════════════════════════════════════
 // FIREBASE & DATA LAYER
 // ════════════════════════════════════════════
 let db = null;
+let auth = null;
 let isDemo = false;
 let demoData = { toko:{nama:'Toko Demo',telepon:'',alamat:'',catatan_bill:''}, produk:{}, transaksi:{}, cash_opname:{} };
+
+// ── MULTI-TENANT STATE ──
+// GANTI email ini dengan email akun admin (kamu). Harus sama persis dengan
+// email yang dipakai login, dan harus sama persis dengan yang ditulis di
+// Firebase Security Rules (lihat catatan di bawah / dokumentasi terpisah).
+const ADMIN_EMAIL = 'admin@kasirku.app';
+let STORE_UID = null;      // uid toko yang sedang login (null utk admin/demo)
+let STORE_ACTIVE = true;
 
 function LS(k,v){
   if(v===undefined){try{return JSON.parse(localStorage.getItem('kku_'+k))}catch{return null}}
   localStorage.setItem('kku_'+k,JSON.stringify(v));
 }
 
+// Path data toko selalu diprefix dengan stores/{uid}/ supaya data tiap toko
+// terpisah otomatis di semua fungsi yang sudah ada (dashboard, kasir, dll)
+function storeBase(){ return 'stores/'+STORE_UID; }
+function fbPath(path){ return path ? storeBase()+'/'+path : storeBase(); }
+
 async function fbGet(path){
   if(isDemo) return deepGet(demoData,path);
-  const snap = await db.ref(path).get();
+  const snap = await db.ref(fbPath(path)).get();
   return snap.exists() ? snap.val() : null;
 }
 async function fbSet(path,val){
   if(isDemo){deepSet(demoData,path,val);return;}
-  await db.ref(path).set(val);
+  await db.ref(fbPath(path)).set(val);
 }
 async function fbPush(path,val){
   if(isDemo){
@@ -400,17 +441,23 @@ async function fbPush(path,val){
     deepSet(demoData,path+'/'+id,val);
     return id;
   }
-  const ref=await db.ref(path).push(val);
+  const ref=await db.ref(fbPath(path)).push(val);
   return ref.key;
 }
 async function fbRemove(path){
   if(isDemo){deepSet(demoData,path,null);return;}
-  await db.ref(path).remove();
+  await db.ref(fbPath(path)).remove();
 }
 async function fbUpdate(path,val){
   if(isDemo){Object.entries(val).forEach(([k,v])=>deepSet(demoData,path+'/'+k,v));return;}
-  await db.ref(path).update(val);
+  await db.ref(fbPath(path)).update(val);
 }
+
+// ── RAW (non-tenant) HELPERS — dipakai utk storeIndex & admin, tidak diprefix ──
+async function fbGetRaw(path){ const snap=await db.ref(path).get(); return snap.exists()?snap.val():null; }
+async function fbSetRaw(path,val){ await db.ref(path).set(val); }
+async function fbUpdateRaw(path,val){ await db.ref(path).update(val); }
+async function fbRemoveRaw(path){ await db.ref(path).remove(); }
 
 function deepGet(obj,path){
   return path.split('/').reduce((o,k)=>o&&o[k]!==undefined?o[k]:null,obj);
@@ -428,39 +475,136 @@ function setFbStatus(state,text){
   document.getElementById('fbStatusText').textContent=text;
 }
 
-function connectFirebase(){
-  const raw=document.getElementById('fbConfigInput').value.trim();
-  let cfg;
-  try{
-    // handle if pasted with variable declaration
-    const m=raw.match(/\{[\s\S]+\}/);
-    cfg=JSON.parse(m?m[0]:raw);
-  }catch{showToast('⚠️ Format config tidak valid!',false);return;}
-  if(!cfg.databaseURL){showToast('⚠️ databaseURL tidak ditemukan!',false);return;}
-  LS('fbConfig',cfg);
-  initFirebase(cfg);
-}
-
 function initFirebase(cfg){
   try{
     if(!firebase.apps.length) firebase.initializeApp(cfg);
     db=firebase.database();
+    auth=firebase.auth();
     db.ref('.info/connected').on('value',snap=>{
       if(snap.val())setFbStatus('connected','Terhubung ☁️');
       else setFbStatus('error','Offline');
     });
-    closeModal('modalFirebase');
-    showToast('🔥 Firebase terhubung!');
-    initApp();
-  }catch(e){showToast('⚠️ Gagal: '+e.message,false);}
+    auth.onAuthStateChanged(onAuthChange);
+  }catch(e){showToast('⚠️ Gagal konek Firebase: '+e.message,false);}
 }
 
 function useDemoMode(){
   isDemo=true;
-  closeModal('modalFirebase');
+  hideAuthScreen();
+  document.getElementById('adminScreen').style.display='none';
+  document.getElementById('appShell').style.display='';
   setFbStatus('connected','Mode Demo');
   showToast('🧪 Mode Demo aktif (data tidak tersimpan permanen)');
+  document.getElementById('sbStoreName').textContent='🧪 Toko Demo';
   initApp();
+}
+
+// ════════════════════════════════════════════
+// AUTH — LOGIN / DAFTAR TOKO / LOGOUT / ROUTING
+// ════════════════════════════════════════════
+function switchAuthTab(tab){
+  document.getElementById('tabLogin').classList.toggle('active',tab==='login');
+  document.getElementById('tabRegister').classList.toggle('active',tab==='register');
+  document.getElementById('formLogin').style.display=tab==='login'?'flex':'none';
+  document.getElementById('formRegister').style.display=tab==='register'?'flex':'none';
+  authErr('');
+}
+function authErr(msg){
+  const el=document.getElementById('authErr');
+  if(!msg){el.classList.remove('show');el.textContent='';return;}
+  el.textContent=msg;el.classList.add('show');
+}
+function friendlyAuthError(e){
+  const m={
+    'auth/user-not-found':'Email belum terdaftar. Coba menu "Daftar Toko Baru".',
+    'auth/wrong-password':'Password salah.',
+    'auth/invalid-credential':'Email atau password salah.',
+    'auth/email-already-in-use':'Email ini sudah terdaftar. Coba menu Masuk.',
+    'auth/weak-password':'Password minimal 6 karakter.',
+    'auth/invalid-email':'Format email tidak valid.',
+    'auth/too-many-requests':'Terlalu banyak percobaan. Coba lagi beberapa saat lagi.'
+  };
+  return m[e.code]||e.message;
+}
+
+async function doLogin(){
+  const email=gv('liEmail'), pass=document.getElementById('liPass').value;
+  if(!email||!pass){authErr('Email & password wajib diisi');return;}
+  authErr('');loading(true);
+  try{ await auth.signInWithEmailAndPassword(email,pass); }
+  catch(e){authErr(friendlyAuthError(e));}
+  finally{loading(false);}
+}
+
+async function doRegister(){
+  const toko=gv('rgToko'), email=gv('rgEmail'), wa=gv('rgWA'), pass=document.getElementById('rgPass').value;
+  if(!toko||!email||!pass){authErr('Nama toko, email, dan password wajib diisi');return;}
+  if(pass.length<6){authErr('Password minimal 6 karakter');return;}
+  authErr('');loading(true);
+  try{
+    const cred=await auth.createUserWithEmailAndPassword(email,pass);
+    const uid=cred.user.uid, now=Date.now();
+    await fbSetRaw('storeIndex/'+uid,{nama:toko,email,wa:wa||'',active:true,createdAt:now,lastLogin:now});
+    STORE_UID=uid;
+    await fbSet('toko',{nama:toko,telepon:wa||'',alamat:'',catatan_bill:''});
+    showToast('🎉 Toko berhasil didaftarkan, selamat datang!');
+  }catch(e){authErr(friendlyAuthError(e));}
+  finally{loading(false);}
+}
+
+async function doForgotPassword(){
+  const email=gv('liEmail');
+  if(!email){authErr('Isi kolom email dulu, lalu klik "Lupa password?" lagi');return;}
+  try{ await auth.sendPasswordResetEmail(email); showToast('📧 Link reset password dikirim ke '+email); }
+  catch(e){authErr(friendlyAuthError(e));}
+}
+
+function doLogout(){
+  if(!confirm('Keluar dari akun ini?'))return;
+  isDemo=false;
+  if(auth&&auth.currentUser) auth.signOut().then(()=>location.reload());
+  else location.reload();
+}
+
+function showAuthScreen(){
+  document.getElementById('authScreen').style.display='flex';
+  document.getElementById('adminScreen').style.display='none';
+  document.getElementById('appShell').style.display='none';
+}
+function hideAuthScreen(){ document.getElementById('authScreen').style.display='none'; }
+
+async function onAuthChange(user){
+  if(!user){ STORE_UID=null; showAuthScreen(); return; }
+  loading(true);
+  try{
+    if(user.email===ADMIN_EMAIL){
+      document.getElementById('authScreen').style.display='none';
+      document.getElementById('appShell').style.display='none';
+      document.getElementById('adminScreen').style.display='block';
+      renderAdminPanel();
+      return;
+    }
+    const idx=await fbGetRaw('storeIndex/'+user.uid);
+    if(!idx){
+      authErr('Akun ini belum terdaftar sebagai toko. Hubungi admin.');
+      await auth.signOut();
+      return;
+    }
+    if(idx.active===false){
+      await auth.signOut();
+      showAuthScreen();switchAuthTab('login');
+      authErr('Akun toko ini sedang dinonaktifkan admin. Hubungi admin untuk info lebih lanjut.');
+      return;
+    }
+    STORE_UID=user.uid;STORE_ACTIVE=true;
+    fbUpdateRaw('storeIndex/'+user.uid,{lastLogin:Date.now()});
+    hideAuthScreen();
+    document.getElementById('adminScreen').style.display='none';
+    document.getElementById('appShell').style.display='';
+    document.getElementById('sbStoreName').textContent='🏪 '+(idx.nama||'Toko');
+    initApp();
+  }catch(e){ authErr('Gagal memuat data: '+e.message); }
+  finally{ loading(false); }
 }
 
 // ════════════════════════════════════════════
@@ -479,6 +623,81 @@ function initApp(){
     if(!t) fbSet('toko',{nama:'Nama Toko Saya',telepon:'',alamat:'',catatan_bill:''});
   });
   showPage('dashboard');
+}
+
+// ════════════════════════════════════════════
+// ADMIN PANEL — pantau & kelola akses toko
+// (admin TIDAK bisa lihat isi produk/transaksi/keuangan toko,
+//  hanya daftar toko, status aktif, dan waktu login terakhir)
+// ════════════════════════════════════════════
+async function renderAdminPanel(){
+  const el=document.getElementById('adminContent');
+  el.innerHTML='<div class="empty"><div class="spinner" style="margin:0 auto"></div></div>';
+  const idxRaw=await fbGetRaw('storeIndex');
+  const legacyToko=await fbGetRaw('toko'); // data lama sebelum multi-tenant, kalau masih ada
+  const stores=idxRaw?Object.entries(idxRaw):[];
+  stores.sort((a,b)=>(b[1].createdAt||0)-(a[1].createdAt||0));
+  const fmt=ts=>ts?new Date(ts).toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'}):'-';
+  el.innerHTML=`
+    ${legacyToko?`<div class="card" style="border-color:var(--yellow)"><div class="card-body">
+      <p style="font-size:13px"><strong>📦 Data lama terdeteksi</strong> (dari sebelum sistem login ada): <em>${esc(legacyToko.nama||'Toko lama')}</em>.
+      Pilih toko tujuan di bawah lalu klik "Impor data lama" untuk memindahkannya jadi milik toko itu (hanya bisa sekali, dan tidak akan menimpa transaksi yang sudah ada).</p>
+    </div></div>`:''}
+    <div class="card"><div class="card-header"><span>🏪</span><h3>Daftar Toko (${stores.length})</h3></div>
+    <div class="card-body">
+    ${stores.length?stores.map(([uid,s])=>`
+      <div class="store-row">
+        <div class="si">
+          <strong>${esc(s.nama||'-')}</strong>
+          <span class="badge ${s.active===false?'off':'on'}">${s.active===false?'Nonaktif':'Aktif'}</span>
+          <p>${esc(s.email||'-')} ${s.wa?'· 📱'+esc(s.wa):''}</p>
+          <p>Daftar: ${fmt(s.createdAt)} · Login terakhir: ${fmt(s.lastLogin)}</p>
+        </div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap">
+          ${legacyToko&&!s.legacyImported?`<button class="btn btn-secondary btn-sm" onclick="adminImportLegacy('${uid}')">📦 Impor data lama</button>`:''}
+          <button class="btn btn-secondary btn-sm" onclick="adminToggleActive('${uid}',${s.active===false})">${s.active===false?'✅ Aktifkan':'⛔ Nonaktifkan'}</button>
+          <button class="btn btn-danger btn-sm" onclick="adminDeleteStore('${uid}','${esc(s.nama||'')}')">🗑️ Hapus</button>
+        </div>
+      </div>`).join(''):'<div class="empty">Belum ada toko yang daftar.</div>'}
+    </div></div>
+    <p style="font-size:11px;color:var(--text3);margin-top:10px">Catatan: menghapus di sini menghapus data toko & akses aplikasinya. Akun login (email/password) tetap perlu dihapus manual lewat Firebase Console → Authentication kalau ingin email itu bisa dipakai daftar ulang.</p>
+  `;
+}
+
+async function adminToggleActive(uid,makeActive){
+  await fbUpdateRaw('storeIndex/'+uid,{active:makeActive});
+  showToast(makeActive?'✅ Toko diaktifkan kembali':'⛔ Toko dinonaktifkan');
+  renderAdminPanel();
+}
+
+async function adminDeleteStore(uid,nama){
+  if(!confirm('Hapus toko "'+nama+'" beserta seluruh datanya (produk, transaksi, dll)? Tindakan ini tidak bisa dibatalkan.'))return;
+  loading(true);
+  try{
+    await fbRemoveRaw('stores/'+uid);
+    await fbRemoveRaw('storeIndex/'+uid);
+    showToast('🗑️ Toko dihapus');
+    renderAdminPanel();
+  }finally{loading(false);}
+}
+
+async function adminImportLegacy(uid){
+  if(!confirm('Impor data lama (produk, transaksi, dll dari sebelum sistem login) ke toko ini? Hanya bisa dilakukan sekali.'))return;
+  loading(true);
+  try{
+    const paths=['toko','produk','transaksi','cash_opname','pelanggan'];
+    for(const p of paths){
+      const data=await fbGetRaw(p);
+      if(data!==null){
+        const existing=await fbGetRaw('stores/'+uid+'/'+p);
+        // gabung, jangan menimpa data yang sudah ada di toko tujuan
+        await fbSetRaw('stores/'+uid+'/'+p, existing?{...data,...existing}:data);
+      }
+    }
+    await fbUpdateRaw('storeIndex/'+uid,{legacyImported:true});
+    showToast('✅ Data lama berhasil diimpor');
+    renderAdminPanel();
+  }finally{loading(false);}
 }
 
 // Hardcoded Firebase config — tidak perlu input manual lagi
@@ -536,7 +755,7 @@ function showToast(msg,ok=true){
 }
 function openModal(id){document.getElementById(id).classList.add('open');document.body.style.overflow='hidden'}
 function closeModal(id){document.getElementById(id).classList.remove('open');document.body.style.overflow=''}
-document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o&&o.id!=='modalFirebase')closeModal(o.id)}));
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)closeModal(o.id)}));
 function loading(show){document.getElementById('loadingWrap').classList.toggle('show',show)}
 
 // ════════════════════════════════════════════
@@ -1251,7 +1470,6 @@ async function saveCashOpname(){
 // ════════════════════════════════════════════
 async function pengaturan(){
   const toko=await fbGet('toko')||{};
-  const savedCfg=LS('fbConfig');
   document.getElementById('pageContent').innerHTML=`
   <div class="card" style="max-width:560px">
     <div class="card-header"><span>🏪</span><h3>Info Toko</h3></div>
@@ -1266,12 +1484,12 @@ async function pengaturan(){
     </div>
   </div>
   <div class="card mt-16" style="max-width:560px">
-    <div class="card-header"><span>🔥</span><h3>Firebase</h3></div>
+    <div class="card-header"><span>👤</span><h3>Akun</h3></div>
     <div class="card-body">
-      <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Firebase ${savedCfg?'sudah terhubung ke project: <strong>'+esc(savedCfg.projectId||'')+'</strong>':'belum dikonfigurasi'}.</p>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Masuk sebagai: <strong>${esc(isDemo?'Mode Demo':(auth&&auth.currentUser?auth.currentUser.email:'-'))}</strong></p>
       <div style="display:flex;gap:9px;flex-wrap:wrap">
-        <button class="btn btn-secondary" onclick="openModal('modalFirebase')">🔄 Ganti Config Firebase</button>
-        ${savedCfg?`<button class="btn btn-danger" onclick="resetFirebase()">⚠️ Reset Config</button>`:''}
+        ${isDemo?'':'<button class="btn btn-secondary" onclick="changePasswordFromSettings()">🔑 Ganti Password (kirim email reset)</button>'}
+        <button class="btn btn-danger" onclick="doLogout()">🚪 Keluar</button>
       </div>
     </div>
   </div>`;
@@ -1288,9 +1506,12 @@ async function savePengaturan(){
   }finally{loading(false);}
 }
 
-function resetFirebase(){
-  if(!confirm('Reset config Firebase? Kamu perlu input ulang config.'))return;
-  localStorage.removeItem('kku_fbConfig');showToast('Config direset, reload halaman');setTimeout(()=>location.reload(),1500);
+async function changePasswordFromSettings(){
+  if(!auth||!auth.currentUser)return;
+  const email=auth.currentUser.email;
+  if(!confirm('Kirim email reset password ke '+email+'?'))return;
+  try{ await auth.sendPasswordResetEmail(email); showToast('📧 Link reset password dikirim ke '+email); }
+  catch(e){ showToast('⚠️ Gagal: '+e.message,false); }
 }
 </script>
 </body>
