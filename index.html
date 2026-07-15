@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>KasirKu — POS & Mini ATM</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2340916C'/%3E%3Cstop offset='1' stop-color='%231B4332'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='url(%23g)'/%3E%3Ctext x='32' y='45' font-family='Arial,sans-serif' font-weight='800' font-size='34' fill='%23fff' text-anchor='middle'%3EK%3C/text%3E%3Ccircle cx='50' cy='14' r='6' fill='%23E9A800'/%3E%3C/svg%3E">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -257,10 +258,26 @@ hr.sep{border:none;border-top:1px dashed var(--border);margin:13px 0}
 </head>
 <body>
 
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="kkuLogoGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#40916C"/>
+      <stop offset="1" stop-color="#1B4332"/>
+    </linearGradient>
+  </defs>
+</svg>
+
 <!-- AUTH SCREEN (login / daftar toko) -->
 <div class="auth-wrap" id="authScreen" style="display:none">
   <div class="auth-card">
-    <div class="auth-brand"><h1>🧾 KasirKu</h1><p>POS & Mini ATM untuk UMKM</p></div>
+    <div class="auth-brand">
+      <svg viewBox="0 0 64 64" width="56" height="56" style="display:block;margin:0 auto 10px">
+        <rect width="64" height="64" rx="16" fill="url(#kkuLogoGrad)"/>
+        <text x="32" y="45" font-family="'Plus Jakarta Sans',sans-serif" font-weight="800" font-size="34" fill="#fff" text-anchor="middle">K</text>
+        <circle cx="50" cy="14" r="6" fill="#E9A800"/>
+      </svg>
+      <h1>KasirKu</h1><p>POS & Mini ATM untuk UMKM</p>
+    </div>
     <div class="auth-tabs">
       <button class="auth-tab active" id="tabLogin" onclick="switchAuthTab('login')">Masuk</button>
       <button class="auth-tab" id="tabRegister" onclick="switchAuthTab('register')">Daftar Toko Baru</button>
@@ -287,14 +304,28 @@ hr.sep{border:none;border-top:1px dashed var(--border);margin:13px 0}
 
 <!-- ADMIN PANEL -->
 <div id="adminScreen" style="display:none">
-  <div class="admin-topbar"><h2>🛡️ Admin — Pantau Akses Toko</h2><button class="btn btn-secondary btn-sm" onclick="doLogout()">Keluar</button></div>
+  <div class="admin-topbar">
+    <svg viewBox="0 0 64 64" width="28" height="28" style="flex-shrink:0">
+      <rect width="64" height="64" rx="16" fill="url(#kkuLogoGrad)"/>
+      <text x="32" y="45" font-family="'Plus Jakarta Sans',sans-serif" font-weight="800" font-size="34" fill="#fff" text-anchor="middle">K</text>
+      <circle cx="50" cy="14" r="6" fill="#E9A800"/>
+    </svg>
+    <h2>Admin — Pantau Akses Toko</h2><button class="btn btn-secondary btn-sm" onclick="doLogout()">Keluar</button>
+  </div>
   <div class="admin-wrap" id="adminContent"><div class="empty">Memuat data toko...</div></div>
 </div>
 
 <div class="shell" id="appShell" style="display:none">
 <!-- DESKTOP SIDEBAR -->
 <aside class="sidebar">
-  <div class="sb-brand"><h1>🧾 KasirKu</h1><p>POS & Mini ATM</p></div>
+  <div class="sb-brand" style="display:flex;align-items:center;gap:10px">
+    <svg viewBox="0 0 64 64" width="32" height="32" style="flex-shrink:0">
+      <rect width="64" height="64" rx="16" fill="url(#kkuLogoGrad)"/>
+      <text x="32" y="45" font-family="'Plus Jakarta Sans',sans-serif" font-weight="800" font-size="34" fill="#fff" text-anchor="middle">K</text>
+      <circle cx="50" cy="14" r="6" fill="#E9A800"/>
+    </svg>
+    <div><h1 style="margin:0">KasirKu</h1><p style="margin:0">POS & Mini ATM</p></div>
+  </div>
   <div class="sb-section">Utama</div>
   <button class="sb-item" data-page="dashboard"><span class="ico">📊</span><span>Dashboard</span></button>
   <button class="sb-item" data-page="kasir"><span class="ico">🛒</span><span>Kasir</span></button>
@@ -412,7 +443,7 @@ let demoData = { toko:{nama:'Toko Demo',telepon:'',alamat:'',catatan_bill:''}, p
 // GANTI email ini dengan email akun admin (kamu). Harus sama persis dengan
 // email yang dipakai login, dan harus sama persis dengan yang ditulis di
 // Firebase Security Rules (lihat catatan di bawah / dokumentasi terpisah).
-const ADMIN_EMAIL = 'admin@kasirku.app';
+const ADMIN_EMAIL = 'ssrrayu12833@gmail.com';
 let STORE_UID = null;      // uid toko yang sedang login (null utk admin/demo)
 let STORE_ACTIVE = true;
 
