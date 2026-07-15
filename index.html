@@ -315,6 +315,26 @@ hr.sep{border:none;border-top:1px dashed var(--border);margin:13px 0}
   <div class="admin-wrap" id="adminContent"><div class="empty">Memuat data toko...</div></div>
 </div>
 
+<!-- PENDING ACTIVATION SCREEN -->
+<div class="auth-wrap" id="pendingScreen" style="display:none">
+  <div class="auth-card" style="text-align:center">
+    <svg viewBox="0 0 64 64" width="56" height="56" style="display:block;margin:0 auto 14px">
+      <rect width="64" height="64" rx="16" fill="url(#kkuLogoGrad)"/>
+      <text x="32" y="45" font-family="'Plus Jakarta Sans',sans-serif" font-weight="800" font-size="34" fill="#fff" text-anchor="middle">K</text>
+      <circle cx="50" cy="14" r="6" fill="#E9A800"/>
+    </svg>
+    <h1 style="font-size:17px;margin-bottom:8px">🕒 Menunggu Aktivasi</h1>
+    <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:18px">
+      Toko kamu sudah berhasil didaftarkan, tapi belum diaktifkan oleh admin.
+      Hubungi admin kalau ini sudah lama, atau cek lagi statusnya di sini.
+    </p>
+    <div style="display:flex;gap:9px;justify-content:center;flex-wrap:wrap">
+      <button class="btn btn-secondary" onclick="checkPendingStatus()">🔄 Cek Status</button>
+      <button class="btn btn-danger" onclick="doLogout()">🚪 Keluar</button>
+    </div>
+  </div>
+</div>
+
 <div class="shell" id="appShell" style="display:none">
 <!-- DESKTOP SIDEBAR -->
 <aside class="sidebar">
@@ -597,11 +617,11 @@ async function doRegister(){
   try{
     const cred=await auth.createUserWithEmailAndPassword(email,pass);
     const uid=cred.user.uid, now=Date.now();
-    await fbSetRaw('storeIndex/'+uid,{nama:toko,email,wa:wa||'',active:true,createdAt:now,lastLogin:now,emailVerified:false});
+    await fbSetRaw('storeIndex/'+uid,{nama:toko,email,wa:wa||'',active:false,everActivated:false,createdAt:now,lastLogin:now,emailVerified:false});
     STORE_UID=uid;
     await fbSet('toko',{nama:toko,telepon:wa||'',alamat:'',catatan_bill:''});
     cred.user.sendEmailVerification().catch(()=>{});
-    showToast('🎉 Toko berhasil didaftarkan, selamat datang!');
+    showToast('🎉 Toko berhasil didaftar! Menunggu aktivasi dari admin.');
   }catch(e){authErr(friendlyAuthError(e));}
   finally{loading(false);}
 }
@@ -624,8 +644,16 @@ function showAuthScreen(){
   document.getElementById('authScreen').style.display='flex';
   document.getElementById('adminScreen').style.display='none';
   document.getElementById('appShell').style.display='none';
+  document.getElementById('pendingScreen').style.display='none';
 }
 function hideAuthScreen(){ document.getElementById('authScreen').style.display='none'; }
+
+async function checkPendingStatus(){
+  if(!auth||!auth.currentUser)return;
+  loading(true);
+  try{ await onAuthChange(auth.currentUser); }
+  finally{ loading(false); }
+}
 
 async function onAuthChange(user){
   if(!user){ STORE_UID=null; showAuthScreen(); return; }
@@ -634,6 +662,7 @@ async function onAuthChange(user){
     if(user.email===ADMIN_EMAIL){
       document.getElementById('authScreen').style.display='none';
       document.getElementById('appShell').style.display='none';
+      document.getElementById('pendingScreen').style.display='none';
       document.getElementById('adminScreen').style.display='block';
       renderAdminPanel();
       return;
@@ -645,9 +674,11 @@ async function onAuthChange(user){
       return;
     }
     if(idx.active===false){
-      await auth.signOut();
-      showAuthScreen();switchAuthTab('login');
-      authErr('Akun toko ini sedang dinonaktifkan admin. Hubungi admin untuk info lebih lanjut.');
+      STORE_UID=user.uid;
+      document.getElementById('authScreen').style.display='none';
+      document.getElementById('adminScreen').style.display='none';
+      document.getElementById('appShell').style.display='none';
+      document.getElementById('pendingScreen').style.display='flex';
       return;
     }
     STORE_UID=user.uid;STORE_ACTIVE=true;
@@ -656,6 +687,7 @@ async function onAuthChange(user){
     fbUpdateRaw('storeIndex/'+user.uid,{lastLogin:Date.now(),emailVerified:verified});
     hideAuthScreen();
     document.getElementById('adminScreen').style.display='none';
+    document.getElementById('pendingScreen').style.display='none';
     document.getElementById('appShell').style.display='';
     document.getElementById('sbStoreName').textContent='🏪 '+(idx.nama||'Toko');
     document.getElementById('verifyBanner').style.display=verified?'none':'flex';
@@ -765,7 +797,7 @@ async function renderAdminPanel(){
       <div class="store-row">
         <div class="si">
           <strong>${esc(s.nama||'-')}</strong>
-          <span class="badge ${s.active===false?'off':'on'}">${s.active===false?'Nonaktif':'Aktif'}</span>
+          <span class="badge ${s.active===false?'off':'on'}">${s.active===false?(s.everActivated?'Nonaktif':'⏳ Menunggu Aktivasi'):'Aktif'}</span>
           <span class="badge ${s.emailVerified?'on':'off'}">${s.emailVerified?'Email Terverifikasi':'Email Belum Verifikasi'}</span>
           <p>${esc(s.email||'-')} ${s.wa?'· 📱'+esc(s.wa):''}</p>
           <p>Daftar: ${fmt(s.createdAt)} · Login terakhir: ${fmt(s.lastLogin)}</p>
@@ -782,8 +814,8 @@ async function renderAdminPanel(){
 }
 
 async function adminToggleActive(uid,makeActive){
-  await fbUpdateRaw('storeIndex/'+uid,{active:makeActive});
-  showToast(makeActive?'✅ Toko diaktifkan kembali':'⛔ Toko dinonaktifkan');
+  await fbUpdateRaw('storeIndex/'+uid,makeActive?{active:true,everActivated:true}:{active:false});
+  showToast(makeActive?'✅ Toko diaktifkan':'⛔ Toko dinonaktifkan');
   renderAdminPanel();
 }
 
@@ -1102,7 +1134,7 @@ async function simpanTx(){
   try{
     const toko=await fbGet('toko')||{};
     const{sub,laba,dis,biaya,total}=calcK();
-    const tx={tanggal:gv('kTgl')||tglNow(),invoice:invNo,customer:gv('kCust'),wa:document.getElementById('kWA')?.value?.trim()||'',
+    const tx={tanggal:gv('kTgl')||tglNow(),invoice:invNo,customer:gv('kCust'),wa:normalizeWaNumber(document.getElementById('kWA')?.value),
       items:kasirItems.map(i=>({...i})),sub,laba,dis,biaya,total,catatan:gv('kCatatan'),ts:Date.now()};
     // Simpan/update pelanggan ke daftar customers
     if(tx.customer){
@@ -1125,8 +1157,15 @@ async function simpanTx(){
   }finally{loading(false);}
 }
 
+function normalizeWaNumber(raw){
+  let d=(raw||'').replace(/\D/g,''); // buang semua yang bukan angka (strip, spasi, +, dll)
+  if(d.startsWith('0')) d=d.slice(1);
+  if(d.startsWith('62')) d=d.slice(2);
+  return d;
+}
+
 async function kirimWA(){
-  const no=document.getElementById('kWA')?.value?.trim().replace(/^0/,'');
+  const no=normalizeWaNumber(document.getElementById('kWA')?.value);
   if(!no){showToast('⚠️ Masukkan nomor WA!',false);return;}
   const toko=await fbGet('toko')||{};
   window.open(`https://wa.me/62${no}?text=${encodeURIComponent(buildBill(toko))}`, '_blank');
@@ -1533,7 +1572,7 @@ async function renderStokHarian(){
               <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;background:var(--surface2);border-radius:var(--r-sm);font-size:12px;flex-wrap:wrap">
                 <code style="font-size:11px;color:var(--text3)">${t.invoice||'—'}</code>
                 <span style="flex:1;font-weight:600">${t.customer||'Umum'}</span>
-                ${t.wa?`<a href="https://wa.me/62${t.wa}" target="_blank" style="color:var(--wa);font-size:11px;font-weight:700">📱 WA</a>`:''}
+                ${t.wa?`<a href="https://wa.me/62${normalizeWaNumber(t.wa)}" target="_blank" style="color:var(--wa);font-size:11px;font-weight:700">📱 WA</a>`:''}
                 <span class="mono" style="font-size:12px;color:var(--green-d)">${rp(t.total)}</span>
                 <span class="badge ${(t.laba||0)>=0?'badge-green':'badge-red'}" style="font-size:10px">${rp(t.laba||0)}</span>
               </div>`).join('')}
